@@ -1,4 +1,3 @@
-
 # 🛡️ AI-Based Fraud Detection System
 
 ## 📌 Problem Statement
@@ -8,7 +7,7 @@ With the rapid growth of digital transactions, fraud has become a major challeng
 This project aims to build a **real-time AI-powered fraud detection system** that:
 
 * Identifies suspicious transactions using machine learning
-* Assigns risk levels dynamically
+* Assigns dynamic risk levels
 * Enables analysts to investigate fraud cases efficiently
 * Provides real-time alerts and monitoring
 
@@ -18,7 +17,7 @@ This project aims to build a **real-time AI-powered fraud detection system** tha
 
 * 🔍 Real-time fraud detection using ML model (Random Forest)
 * 📊 Risk scoring system (LOW, MEDIUM, HIGH, CRITICAL)
-* 🔐 JWT-based authentication & role-based access (USER, ANALYST, ADMIN)
+* 🔐 JWT-based authentication & role-based access control
 * 💳 Digital wallet with transaction monitoring
 * ⚡ WebSocket-based real-time fraud alerts
 * 📁 Fraud case management with SLA tracking
@@ -40,7 +39,7 @@ Frontend (React)  →  Backend (Spring Boot)  →  PostgreSQL
 2. Backend sends data to ML service
 3. ML returns fraud probability
 4. Backend assigns risk level & triggers alerts
-5. Results stored and shown on dashboard
+5. Results stored and displayed on dashboard
 
 ---
 
@@ -98,6 +97,54 @@ docker-compose up -d
 
 ---
 
+## 🔐 Authentication & Roles
+
+### Default Admin Account (Seeded on Startup)
+
+For safety, the backend will **only seed an ADMIN user if you provide environment variables**:
+
+* `ADMIN_EMAIL`
+* `ADMIN_PASSWORD`
+
+(Otherwise no default admin password is committed to the repo.)
+
+### Analyst Account
+
+* ❌ No default analyst account is created automatically
+* ✅ Must be created manually
+
+### How to Create Analyst
+
+**Option 1: Register via UI**
+
+1. Go to `/register`
+2. Create account
+3. Update role in database to `FRAUD_ANALYST`
+
+**Option 2: Backend Setup (Recommended)**
+
+* Add analyst user in `DataInitializer.java`
+
+**Option 3: Direct Database Insert**
+
+---
+
+## 🌐 Login System
+
+* ✅ Single login portal for all roles
+* URL: `http://localhost:5173/login`
+
+After login:
+
+* Users are redirected to `/dashboard`
+* UI features change based on role:
+
+  * ADMIN → Full system access
+  * FRAUD_ANALYST → Fraud case investigation & reports
+  * USER → Transactions & wallet
+
+---
+
 ## 🔌 API Endpoints (Sample)
 
 ### Auth
@@ -138,9 +185,9 @@ System evaluates:
 
 ## 👨‍💻 User Roles
 
+* **ADMIN** → Full system access
+* **FRAUD_ANALYST** → Investigate fraud cases, monitor alerts
 * **USER** → Perform transactions, view history
-* **ANALYST** → Investigate fraud cases
-* **ADMIN** → Manage users, monitor system
 
 ---
 
@@ -182,7 +229,7 @@ docker-compose.yml
 
 ## ⭐ Note
 
-This project is built as a **production-style full-stack system** to demonstrate:
+This project is built as a **production-style full-stack system** demonstrating:
 
 * Backend architecture (Spring Boot)
 * Frontend development (React)
