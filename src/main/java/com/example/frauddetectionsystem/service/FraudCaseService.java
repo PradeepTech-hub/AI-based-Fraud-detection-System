@@ -61,6 +61,25 @@ public class FraudCaseService {
         alertPublisher.publish("FRAUD_CASE_OPENED", mapToResponse(saved));
     }
 
+    public FraudCaseStatus getStatusForTransaction(Long transactionId) {
+        return fraudCaseRepository.findByTransactionId(transactionId)
+                .map(FraudCase::getStatus)
+                .orElse(null);
+    }
+
+    public void autoResolveCaseForTransaction(Transaction transaction, String note) {
+        fraudCaseRepository.findByTransactionId(transaction.getId()).ifPresent(fraudCase -> {
+            if (fraudCase.getStatus() == FraudCaseStatus.RESOLVED || fraudCase.getStatus() == FraudCaseStatus.FALSE_POSITIVE) {
+                return;
+            }
+            fraudCase.setStatus(FraudCaseStatus.RESOLVED);
+            String existingNotes = fraudCase.getAnalystNotes() == null ? "" : fraudCase.getAnalystNotes().trim();
+            fraudCase.setAnalystNotes(existingNotes.isEmpty() ? note : existingNotes + " | " + note);
+            FraudCase saved = fraudCaseRepository.save(fraudCase);
+            alertPublisher.publish("FRAUD_CASE_AUTO_RESOLVED", mapToResponse(saved));
+        });
+    }
+
     public List<FraudCaseResponse> getAllCases() {
         return fraudCaseRepository.findAllByOrderByCreatedAtDesc().stream()
                 .map(this::mapToResponse)

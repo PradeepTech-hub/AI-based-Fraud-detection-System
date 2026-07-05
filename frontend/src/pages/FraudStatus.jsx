@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import { formatCurrencyINR } from '../utils/currency';
+import { getFraudCaseStatusLabel } from '../utils/transactionDisplay';
 
 export default function FraudStatus() {
   const [fraudTransactions, setFraudTransactions] = useState([]);
@@ -66,7 +67,7 @@ export default function FraudStatus() {
                 {tx.fraudStatus === 'FRAUD' ? '🚨' : '⚠️'}
               </div>
               <div style={styles.content}>
-                <h4 style={styles.heading}>{tx.fraudStatus} ALERT</h4>
+                <h4 style={styles.heading}>{tx.fraudStatus} ALERT — Transaction #{tx.id}</h4>
                 <p style={styles.description}>
                   A {tx.fraudStatus.toLowerCase()} transaction was detected
                 </p>
@@ -75,6 +76,9 @@ export default function FraudStatus() {
                   <div><strong>Location:</strong> {tx.location}</div>
                   <div><strong>Date:</strong> {new Date(tx.timestamp).toLocaleString()}</div>
                   <div><strong>Risk Score:</strong> {(tx.riskScore * 100).toFixed(2)}%</div>
+                  <div><strong>Transaction Decision:</strong> {tx.transactionStatus || '-'}</div>
+                  <div><strong>Detection Reason:</strong> {tx.fraudReason || 'No details available'}</div>
+                  <div><strong>Fraud Case Status:</strong> {getFraudCaseStatusLabel(tx.fraudCaseStatus)}</div>
                 </div>
               </div>
             </div>

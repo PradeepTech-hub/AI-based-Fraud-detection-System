@@ -28,6 +28,12 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     long countByFraudStatus(FraudStatus fraudStatus);
 
+    long countByUserId(Long userId);
+
+    long countByUserIdAndFraudStatus(Long userId, FraudStatus fraudStatus);
+
+    List<Transaction> findTop10ByUserIdOrderByTimestampDesc(Long userId);
+
     List<Transaction> findTop10ByOrderByTimestampDesc();
 
     @Query("SELECT COUNT(t) FROM Transaction t WHERE t.userId = :userId AND t.timestamp >= :since")

@@ -262,6 +262,7 @@ public class TransactionService {
             transaction.setPaymentStatus("INITIATED");
         }
         Transaction saved = transactionRepository.save(transaction);
+        fraudCaseService.autoResolveCaseForTransaction(saved, "Auto-resolved: transaction approved by admin");
         alertPublisher.publish("TRANSACTION_APPROVED", mapToResponse(saved, null));
         return mapToResponse(saved, "Transaction approved by admin. Funds transfer has been initiated.");
     }
@@ -316,6 +317,7 @@ public class TransactionService {
 
         Transaction saved = transactionRepository.save(transaction);
         userRepository.save(user);
+        fraudCaseService.autoResolveCaseForTransaction(saved, "Auto-resolved: OTP verified by user");
         alertPublisher.publish("TRANSACTION_OTP_VERIFIED", mapToResponse(saved, null));
         return mapToResponse(saved, "OTP verified. Transaction is now being processed.");
     }
@@ -466,6 +468,9 @@ public class TransactionService {
                 .merchantName(t.getMerchantName())
                 .paymentReference(t.getPaymentReference())
                 .paymentStatus(t.getPaymentStatus())
+                .fraudCaseStatus(t.getFraudStatus() == FraudStatus.NORMAL
+                        ? null
+                        : describeCaseStatus(fraudCaseService.getStatusForTransaction(t.getId())))
                 .otpRequired("OTP_REQUIRED".equalsIgnoreCase(t.getPaymentStatus()))
                 .debited(t.getDebited())
                 .remainingBalance(getUserBalance(t.getUserId()))
@@ -481,6 +486,10 @@ public class TransactionService {
             }
 
             return response;
+    }
+
+    private String describeCaseStatus(com.example.frauddetectionsystem.model.FraudCaseStatus status) {
+        return status == null ? null : status.name();
     }
 
     private Double getUserBalance(Long userId) {

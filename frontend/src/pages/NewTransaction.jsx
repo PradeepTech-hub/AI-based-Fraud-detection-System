@@ -3,6 +3,7 @@ import { jsPDF } from 'jspdf';
 import axiosInstance from '../api/axiosInstance';
 import LocationDropdown from '../components/LocationDropdown';
 import { formatCurrencyINR } from '../utils/currency';
+import { getDeviceId, getDeviceType } from '../utils/deviceInfo';
 
 export default function NewTransaction() {
   const [loading, setLoading] = useState(false);
@@ -33,6 +34,7 @@ export default function NewTransaction() {
   const [backendUnavailable, setBackendUnavailable] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [receiptOpenedForTxn, setReceiptOpenedForTxn] = useState(null);
+  const [showAddMoneyModal, setShowAddMoneyModal] = useState(false);
 
   const refreshProfileState = async () => {
     try {
@@ -58,7 +60,7 @@ export default function NewTransaction() {
       try {
         await refreshProfileState();
       } catch (err) {
-        setError('Backend server is unavailable. Please start backend on port 8081 and refresh.');
+        setError('Backend server is unavailable. Please start backend on port 8080 and refresh.');
       } finally {
         setBalanceLoading(false);
       }
@@ -144,7 +146,7 @@ export default function NewTransaction() {
     }
 
     if (backendUnavailable) {
-      setError('Backend server is unavailable. Please start backend on port 8081 and refresh.');
+      setError('Backend server is unavailable. Please start backend on port 8080 and refresh.');
       return;
     }
 
@@ -182,6 +184,8 @@ export default function NewTransaction() {
         recipientPhone: String(form.recipientPhone || '').trim(),
         paymentMethod: form.paymentMethod,
         upiVpa: form.paymentMethod === 'UPI' ? String(form.upiVpa || '').trim() : null,
+        deviceId: getDeviceId(),
+        deviceType: getDeviceType(),
       });
       setResult(response.data);
       setForm({
@@ -213,7 +217,7 @@ export default function NewTransaction() {
     setError(null);
 
     if (backendUnavailable) {
-      setError('Backend server is unavailable. Please start backend on port 8081 and refresh.');
+      setError('Backend server is unavailable. Please start backend on port 8080 and refresh.');
       return;
     }
 
@@ -408,8 +412,17 @@ export default function NewTransaction() {
 
       {!balanceLoading && (
         <div style={styles.balanceBox}>
-          <div style={styles.balanceLabel}>Current Balance</div>
-          <div style={styles.balanceAmount}>{formatCurrencyINR(userBalance)}</div>
+          <div>
+            <div style={styles.balanceLabel}>Current Balance</div>
+            <div style={styles.balanceAmount}>{formatCurrencyINR(userBalance)}</div>
+          </div>
+          <button
+            type="button"
+            style={styles.addMoneyButton}
+            onClick={() => { setTopupMessage(null); setShowAddMoneyModal(true); }}
+          >
+            + Add Money
+          </button>
         </div>
       )}
 
@@ -421,47 +434,54 @@ export default function NewTransaction() {
 
       {backendUnavailable && (
         <div style={styles.backendDownBox}>
-          ⚠️ Backend server not reachable at http://localhost:8081. Start backend and refresh this page.
+          ⚠️ Backend server not reachable at http://localhost:8080. Start backend and refresh this page.
         </div>
       )}
 
-      {!balanceLoading && (
-        <div style={styles.formBox}>
-          <h2 style={styles.sectionTitle}>Add Balance</h2>
-          <form onSubmit={handleTopUp}>
-            <div style={styles.formRow}>
-              <div style={{ ...styles.formGroup, flex: 1 }}>
-                <label style={styles.label}>Top-up Amount (INR)</label>
-                <input
-                  type="number"
-                  value={topupAmount}
-                  onChange={(e) => setTopupAmount(e.target.value)}
-                  step="0.01"
-                  min="0"
-                  required
-                  style={styles.input}
-                />
-              </div>
-
-              <div style={{ ...styles.formGroup, flex: 1 }}>
-                <label style={styles.label}>Method</label>
-                <select
-                  value={topupMethod}
-                  onChange={(e) => setTopupMethod(e.target.value)}
-                  style={styles.input}
-                >
-                  <option value="UPI">UPI</option>
-                  <option value="CARD">Card</option>
-                  <option value="NETBANKING">Net Banking</option>
-                </select>
-              </div>
+      {showAddMoneyModal && (
+        <div style={styles.receiptOverlay}>
+          <div style={styles.addMoneyModal}>
+            <div style={styles.receiptHeader}>
+              <h3 style={styles.receiptTitle}>Add Money to Wallet</h3>
+              <button type="button" style={styles.receiptCloseX} onClick={() => setShowAddMoneyModal(false)}>×</button>
             </div>
+            <div style={{ padding: '16px' }}>
+              <form onSubmit={handleTopUp}>
+                <div style={styles.formRow}>
+                  <div style={{ ...styles.formGroup, flex: 1 }}>
+                    <label style={styles.label}>Top-up Amount (INR)</label>
+                    <input
+                      type="number"
+                      value={topupAmount}
+                      onChange={(e) => setTopupAmount(e.target.value)}
+                      step="0.01"
+                      min="0"
+                      required
+                      style={styles.input}
+                    />
+                  </div>
 
-            <button type="submit" disabled={topupLoading} style={styles.button}>
-              {topupLoading ? 'Adding...' : 'Add Balance'}
-            </button>
-            {topupMessage && <div style={styles.successBox}>{topupMessage}</div>}
-          </form>
+                  <div style={{ ...styles.formGroup, flex: 1 }}>
+                    <label style={styles.label}>Method</label>
+                    <select
+                      value={topupMethod}
+                      onChange={(e) => setTopupMethod(e.target.value)}
+                      style={styles.input}
+                    >
+                      <option value="UPI">UPI</option>
+                      <option value="CARD">Card</option>
+                      <option value="NETBANKING">Net Banking</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button type="submit" disabled={topupLoading} style={styles.button}>
+                  {topupLoading ? 'Adding...' : 'Add Balance'}
+                </button>
+                {topupMessage && <div style={styles.successBox}>{topupMessage}</div>}
+              </form>
+            </div>
+          </div>
         </div>
       )}
 
@@ -699,10 +719,33 @@ const styles = {
     padding: '20px',
     borderRadius: '12px',
     marginBottom: '24px',
-    textAlign: 'center',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '14px',
+    flexWrap: 'wrap',
   },
   balanceLabel: { fontSize: '14px', fontWeight: '600', opacity: 0.9, marginBottom: '8px' },
   balanceAmount: { fontSize: '28px', fontWeight: 'bold' },
+  addMoneyButton: {
+    border: '1px solid rgba(255,255,255,0.6)',
+    borderRadius: '8px',
+    padding: '10px 16px',
+    background: 'rgba(255,255,255,0.15)',
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: '13px',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  },
+  addMoneyModal: {
+    width: '100%',
+    maxWidth: '420px',
+    background: '#fff',
+    borderRadius: '12px',
+    boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+    overflow: 'hidden',
+  },
   formBox: {
     background: '#fff',
     padding: '24px',

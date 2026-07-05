@@ -1,21 +1,6 @@
 import axios from 'axios';
 
-const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api';
-
-function resolveApiBaseUrl(url) {
-  try {
-    const parsed = new URL(url);
-    if (parsed.hostname === 'localhost' && parsed.port === '8080') {
-      parsed.port = '8081';
-      return parsed.toString().replace(/\/$/, '');
-    }
-    return url;
-  } catch {
-    return url;
-  }
-}
-
-const apiBaseUrl = resolveApiBaseUrl(configuredApiBaseUrl);
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 const isDev = import.meta.env.DEV;
 
 const isAuthEndpoint = (url = '') => {
@@ -34,14 +19,6 @@ const axiosInstance = axios.create({
 });
 
 axiosInstance.interceptors.request.use((config) => {
-  if (typeof config.baseURL === 'string' && config.baseURL.includes('localhost:8080')) {
-    config.baseURL = config.baseURL.replace('localhost:8080', 'localhost:8081');
-  }
-
-  if (typeof config.url === 'string' && config.url.includes('localhost:8080')) {
-    config.url = config.url.replace('localhost:8080', 'localhost:8081');
-  }
-
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

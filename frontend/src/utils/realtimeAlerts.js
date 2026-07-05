@@ -1,6 +1,6 @@
 export function connectRealtimeAlerts(onMessage) {
   try {
-    const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081/api';
+    const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
     const wsUrl = apiBase
       .replace(/^http/i, 'ws')
       .replace(/\/api\/?$/, '')

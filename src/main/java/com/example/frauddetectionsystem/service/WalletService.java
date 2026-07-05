@@ -54,9 +54,11 @@ public class WalletService {
         if (updated != 1) {
             throw new IllegalArgumentException("Failed to update wallet balance for user: " + userId);
         }
-        // Refresh user balance from DB within the same transaction
-        User refreshed = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+        // NOTE: re-querying via userRepository here would return the same managed entity
+        // already held in this transaction's persistence context (Hibernate's first-level
+        // cache), whose balance field was never touched by the raw JDBC UPDATE above - it
+        // would report the stale pre-topup balance. Compute the new value directly instead.
+        double newBalance = (user.getBalance() == null ? 0.0 : user.getBalance()) + request.getAmount();
 
         return TopUpResponse.builder()
                 .id(saved.getId())
@@ -66,7 +68,7 @@ public class WalletService {
                 .reference(reference)
                 .status(status)
                 .createdAt(saved.getCreatedAt())
-                .newBalance(refreshed.getBalance())
+                .newBalance(newBalance)
                 .message("Balance added successfully")
                 .build();
     }

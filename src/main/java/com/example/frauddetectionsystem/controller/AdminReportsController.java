@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -29,7 +30,7 @@ public class AdminReportsController {
     @PreAuthorize("hasAnyRole('ADMIN','FRAUD_ANALYST')")
     public ResponseEntity<Map<String, Object>> getMainReport() {
         DashboardStatsDTO stats = dashboardService.getDashboardStats();
-        Map<String, Object> report = reportService.getFraudRate();
+        Map<String, Object> report = new HashMap<>(reportService.getFraudRate());
         report.put("fraudCount", stats.getFraudCount());
         report.put("suspiciousCount", stats.getSuspiciousCount());
         report.put("normalCount", stats.getNormalCount());

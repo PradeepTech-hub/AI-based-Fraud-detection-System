@@ -35,6 +35,7 @@ public class TransactionResponse {
     private String merchantName;
     private String paymentReference;
     private String paymentStatus;
+    private String fraudCaseStatus;
     private Boolean otpRequired;
     private String demoOtp;
     private Boolean debited;

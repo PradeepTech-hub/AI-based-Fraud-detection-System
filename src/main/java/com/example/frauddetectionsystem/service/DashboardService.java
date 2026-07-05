@@ -43,5 +43,32 @@ public class DashboardService {
                 .recentTransactions(recent)
                 .build();
     }
+
+    /**
+     * Scoped to a single user's own transactions, so a regular USER never sees
+     * other users' fraud/suspicious counts or recent transactions.
+     */
+    public DashboardStatsDTO getDashboardStatsForUser(Long userId) {
+        long total = transactionRepository.countByUserId(userId);
+        long fraudCount = transactionRepository.countByUserIdAndFraudStatus(userId, FraudStatus.FRAUD);
+        long suspiciousCount = transactionRepository.countByUserIdAndFraudStatus(userId, FraudStatus.SUSPICIOUS);
+        long normalCount = transactionRepository.countByUserIdAndFraudStatus(userId, FraudStatus.NORMAL);
+        double fraudRate = total > 0 ? (double) fraudCount / total * 100 : 0;
+
+        List<TransactionResponse> recent = transactionRepository.findTop10ByUserIdOrderByTimestampDesc(userId)
+                .stream().map(t -> transactionService.mapToResponse(t, null))
+                .collect(Collectors.toList());
+
+        return DashboardStatsDTO.builder()
+                .totalTransactions(total)
+                .fraudCount(fraudCount)
+                .suspiciousCount(suspiciousCount)
+                .normalCount(normalCount)
+                .fraudRate(Math.round(fraudRate * 100.0) / 100.0)
+                .totalUsers(1)
+                .totalBankBalance(0)
+                .recentTransactions(recent)
+                .build();
+    }
 }
 

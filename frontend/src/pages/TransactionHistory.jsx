@@ -1,6 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import { formatCurrencyINR } from '../utils/currency';
+import { getOutcomeLabel } from '../utils/transactionDisplay';
+
+const DEFAULT_FILTERS = {
+  search: '',
+  dateFrom: '',
+  dateTo: '',
+  fraudStatus: 'ALL',
+  paymentStatus: 'ALL',
+  riskLevel: 'ALL',
+};
 
 export default function TransactionHistory() {
   const [transactions, setTransactions] = useState([]);
@@ -10,6 +20,7 @@ export default function TransactionHistory() {
   const [otpInputs, setOtpInputs] = useState({});
   const [otpLoading, setOtpLoading] = useState({});
   const [message, setMessage] = useState(null);
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
 
   const loadTransactions = async () => {
     const res = await axiosInstance.get('/transactions/my');
@@ -36,7 +47,7 @@ export default function TransactionHistory() {
   }, []);
 
   const reportTransaction = async (transactionId) => {
-    const description = window.prompt('Please describe why you believe this transaction is unauthorized:');
+    const description = window.prompt('Describe the issue with this transaction (e.g., unauthorized, wrong amount, not delivered):');
     if (!description || !description.trim()) return;
 
     setReportLoading((prev) => ({ ...prev, [transactionId]: true }));
@@ -75,6 +86,27 @@ export default function TransactionHistory() {
     }
   };
 
+  const filteredTransactions = useMemo(() => {
+    const q = filters.search.trim().toLowerCase();
+    const from = filters.dateFrom ? new Date(filters.dateFrom) : null;
+    const to = filters.dateTo ? new Date(`${filters.dateTo}T23:59:59`) : null;
+
+    return transactions.filter((tx) => {
+      if (q) {
+        const haystack = `${tx.id} ${tx.location || ''} ${tx.recipientPhone || ''} ${tx.paymentReference || ''}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      if (from && new Date(tx.timestamp) < from) return false;
+      if (to && new Date(tx.timestamp) > to) return false;
+      if (filters.fraudStatus !== 'ALL' && tx.fraudStatus !== filters.fraudStatus) return false;
+      if (filters.paymentStatus !== 'ALL' && String(tx.paymentStatus || '').toUpperCase() !== filters.paymentStatus) return false;
+      if (filters.riskLevel !== 'ALL' && tx.riskLevel !== filters.riskLevel) return false;
+      return true;
+    });
+  }, [transactions, filters]);
+
+  const updateFilter = (key, value) => setFilters((prev) => ({ ...prev, [key]: value }));
+
   if (loading) return <div>⏳ Loading...</div>;
 
   return (
@@ -85,10 +117,63 @@ export default function TransactionHistory() {
           Refresh Status
         </button>
       </div>
+
+      <div style={styles.filterBar}>
+        <input
+          type="text"
+          value={filters.search}
+          onChange={(e) => updateFilter('search', e.target.value)}
+          placeholder="Search ID, location, recipient, reference"
+          style={styles.filterSearch}
+        />
+        <input
+          type="date"
+          value={filters.dateFrom}
+          onChange={(e) => updateFilter('dateFrom', e.target.value)}
+          style={styles.filterInput}
+          title="From date"
+        />
+        <input
+          type="date"
+          value={filters.dateTo}
+          onChange={(e) => updateFilter('dateTo', e.target.value)}
+          style={styles.filterInput}
+          title="To date"
+        />
+        <select value={filters.fraudStatus} onChange={(e) => updateFilter('fraudStatus', e.target.value)} style={styles.filterInput}>
+          <option value="ALL">All Fraud Status</option>
+          <option value="NORMAL">Normal</option>
+          <option value="SUSPICIOUS">Suspicious</option>
+          <option value="FRAUD">Fraud</option>
+        </select>
+        <select value={filters.paymentStatus} onChange={(e) => updateFilter('paymentStatus', e.target.value)} style={styles.filterInput}>
+          <option value="ALL">All Payment Status</option>
+          <option value="INITIATED">Initiated</option>
+          <option value="PROCESSING">Processing</option>
+          <option value="SUCCESS">Success</option>
+          <option value="OTP_REQUIRED">OTP Required</option>
+          <option value="ON_HOLD">On Hold</option>
+          <option value="FAILED">Failed</option>
+        </select>
+        <select value={filters.riskLevel} onChange={(e) => updateFilter('riskLevel', e.target.value)} style={styles.filterInput}>
+          <option value="ALL">All Risk Levels</option>
+          <option value="LOW">Low</option>
+          <option value="MEDIUM">Medium</option>
+          <option value="HIGH">High</option>
+        </select>
+        {(filters.search || filters.dateFrom || filters.dateTo || filters.fraudStatus !== 'ALL' || filters.paymentStatus !== 'ALL' || filters.riskLevel !== 'ALL') && (
+          <button type="button" style={styles.clearFiltersButton} onClick={() => setFilters(DEFAULT_FILTERS)}>
+            Clear Filters
+          </button>
+        )}
+      </div>
+
       {message && <div style={styles.successBox}>{message}</div>}
 
       {transactions.length === 0 ? (
         <div style={styles.empty}>No transactions yet</div>
+      ) : filteredTransactions.length === 0 ? (
+        <div style={styles.empty}>No transactions match the selected filters.</div>
       ) : (
         <div style={styles.tableWrapper}>
           <table style={styles.table}>
@@ -106,7 +191,7 @@ export default function TransactionHistory() {
               </tr>
             </thead>
             <tbody>
-              {transactions.map(tx => (
+              {filteredTransactions.map(tx => (
                 <tr key={tx.id}>
                   <td>{tx.id}</td>
                   <td>{formatCurrencyINR(tx.amount)}</td>
@@ -119,6 +204,9 @@ export default function TransactionHistory() {
                     }}>
                       {tx.fraudStatus}
                     </span>
+                    {getOutcomeLabel(tx) && (
+                      <span style={styles.outcomeNote}>{getOutcomeLabel(tx)}</span>
+                    )}
                   </td>
                   <td>{tx.transactionStatus || '-'}</td>
                   <td>
@@ -152,7 +240,7 @@ export default function TransactionHistory() {
                       onClick={() => reportTransaction(tx.id)}
                       disabled={Boolean(reportLoading[tx.id])}
                     >
-                      {reportLoading[tx.id] ? 'Submitting...' : 'Report Not Mine'}
+                      {reportLoading[tx.id] ? 'Submitting...' : 'Report Transaction'}
                     </button>
                   </td>
                 </tr>
@@ -188,6 +276,47 @@ const styles = {
   title: { fontSize: '24px', fontWeight: 'bold', marginBottom: '10px' },
   toolbar: {
     marginBottom: '10px',
+  },
+  filterBar: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '8px',
+    marginBottom: '14px',
+    background: '#fff',
+    borderRadius: '10px',
+    padding: '12px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+  },
+  filterSearch: {
+    flex: '1 1 220px',
+    minWidth: '200px',
+    padding: '8px 10px',
+    borderRadius: '8px',
+    border: '1px solid #d0d7de',
+    fontSize: '12px',
+  },
+  filterInput: {
+    padding: '8px 10px',
+    borderRadius: '8px',
+    border: '1px solid #d0d7de',
+    fontSize: '12px',
+  },
+  clearFiltersButton: {
+    border: 'none',
+    borderRadius: '8px',
+    padding: '8px 12px',
+    background: '#f0f0f0',
+    color: '#374151',
+    fontWeight: '600',
+    fontSize: '12px',
+    cursor: 'pointer',
+  },
+  outcomeNote: {
+    display: 'block',
+    marginTop: '4px',
+    fontSize: '10px',
+    color: '#0b8457',
+    fontWeight: 600,
   },
   refreshButton: {
     border: 'none',

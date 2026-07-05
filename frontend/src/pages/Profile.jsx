@@ -11,6 +11,8 @@ export default function Profile() {
   const [otpInput, setOtpInput] = useState('');
   const [actionLoading, setActionLoading] = useState({ send: false, verify: false });
   const [feedback, setFeedback] = useState({ type: '', text: '' });
+  // Verified users land on a compact status row; changing the number re-opens the OTP flow.
+  const [isChangingPhone, setIsChangingPhone] = useState(false);
 
   useEffect(() => {
     axiosInstance.get('/auth/profile')
@@ -65,6 +67,7 @@ export default function Profile() {
       setProfile(res.data);
       setPhoneInput(res.data?.phone || '');
       setOtpInput('');
+      setIsChangingPhone(false);
       setFeedback({ type: 'success', text: 'Phone number verified and updated successfully.' });
     } catch (err) {
       setFeedback({
@@ -93,101 +96,127 @@ export default function Profile() {
         </div>
       )}
 
-      <div style={styles.phonePanel}>
-        <h3 style={styles.phonePanelTitle}>Phone Verification for OTP Payments</h3>
-        <p style={styles.phonePanelText}>
-          Add your phone number and verify it to receive OTP for suspicious or large payments.
-        </p>
-
-        <div style={styles.phoneRow}>
-          <input
-            type="tel"
-            value={phoneInput}
-            onChange={(e) => setPhoneInput(e.target.value)}
-            placeholder="Enter 10-digit phone number"
-            style={styles.phoneInput}
-          />
-          <button
-            type="button"
-            onClick={sendPhoneOtp}
-            disabled={actionLoading.send}
-            style={styles.sendOtpButton}
-          >
-            {actionLoading.send ? 'Sending...' : 'Send OTP'}
-          </button>
-        </div>
-
-        <div style={styles.phoneRow}>
-          <input
-            type="text"
-            value={otpInput}
-            onChange={(e) => setOtpInput(e.target.value)}
-            placeholder="Enter 6-digit OTP"
-            maxLength={6}
-            style={styles.phoneInput}
-          />
-          <button
-            type="button"
-            onClick={verifyPhoneOtp}
-            disabled={actionLoading.verify}
-            style={styles.verifyOtpButton}
-          >
-            {actionLoading.verify ? 'Verifying...' : 'Verify OTP'}
-          </button>
-        </div>
-
-        {feedback.text && (
-          <div style={feedback.type === 'error' ? styles.errorBox : styles.successBox}>
-            {feedback.text}
-          </div>
-        )}
-      </div>
-
       <div style={styles.profileCard}>
         <div style={styles.avatar}>{profile?.name?.[0]?.toUpperCase()}</div>
-        <div style={styles.info}>
-          <div style={styles.infoRow}>
-            <label style={styles.label}>Name</label>
-            <div style={styles.value}>{profile?.name}</div>
-          </div>
-          <div style={styles.infoRow}>
-            <label style={styles.label}>Email</label>
-            <div style={styles.value}>{profile?.email}</div>
-          </div>
-          <div style={styles.infoRow}>
-            <label style={styles.label}>Role</label>
-            <div style={styles.value}>{profile?.role}</div>
-          </div>
-          <div style={styles.infoRow}>
-            <label style={styles.label}>Phone</label>
-            <div style={styles.value}>{profile?.phone || 'Not set'}</div>
-          </div>
-          <div style={styles.infoRow}>
-            <label style={styles.label}>Phone Verification</label>
-            <div style={profile?.phoneVerified ? styles.verifiedValue : styles.unverifiedValue}>
-              {profile?.phoneVerified ? 'Verified' : 'Not Verified'}
+
+        <div style={styles.infoGrid}>
+          <div style={styles.infoSection}>
+            <h3 style={styles.sectionTitle}>Personal Information</h3>
+            <div style={styles.infoRow}>
+              <label style={styles.label}>Name</label>
+              <div style={styles.value}>{profile?.name}</div>
+            </div>
+            <div style={styles.infoRow}>
+              <label style={styles.label}>Email</label>
+              <div style={styles.value}>{profile?.email}</div>
+            </div>
+            <div style={styles.infoRow}>
+              <label style={styles.label}>Role</label>
+              <div style={styles.value}>{profile?.role}</div>
+            </div>
+            <div style={styles.infoRow}>
+              <label style={styles.label}>Member Since</label>
+              <div style={styles.value}>{new Date(profile?.createdAt).toLocaleDateString()}</div>
             </div>
           </div>
-          <div style={styles.infoRow}>
-            <label style={styles.label}>Bank Name</label>
-            <div style={styles.value}>{profile?.bankName || 'Not set'}</div>
+
+          <div style={styles.infoSection}>
+            <h3 style={styles.sectionTitle}>Bank &amp; Wallet</h3>
+            <div style={styles.infoRow}>
+              <label style={styles.label}>Bank Name</label>
+              <div style={styles.value}>{profile?.bankName || 'Not set'}</div>
+            </div>
+            <div style={styles.infoRow}>
+              <label style={styles.label}>Account Number</label>
+              <div style={styles.value}>{profile?.bankAccountNumber || 'Not set'}</div>
+            </div>
+            <div style={styles.infoRow}>
+              <label style={styles.label}>IFSC</label>
+              <div style={styles.value}>{profile?.bankIfsc || 'Not set'}</div>
+            </div>
+            <div style={styles.infoRow}>
+              <label style={styles.label}>Account Balance</label>
+              <div style={styles.balanceValue}>{formatCurrencyINR(profile?.balance || 0)}</div>
+            </div>
           </div>
-          <div style={styles.infoRow}>
-            <label style={styles.label}>Bank Account Number</label>
-            <div style={styles.value}>{profile?.bankAccountNumber || 'Not set'}</div>
-          </div>
-          <div style={styles.infoRow}>
-            <label style={styles.label}>IFSC</label>
-            <div style={styles.value}>{profile?.bankIfsc || 'Not set'}</div>
-          </div>
-          <div style={styles.infoRow}>
-            <label style={styles.label}>Account Balance</label>
-            <div style={styles.balanceValue}>{formatCurrencyINR(profile?.balance || 0)}</div>
-          </div>
-          <div style={styles.infoRow}>
-            <label style={styles.label}>Member Since</label>
-            <div style={styles.value}>{new Date(profile?.createdAt).toLocaleDateString()}</div>
-          </div>
+        </div>
+
+        <div style={styles.phoneSection}>
+          <h3 style={styles.sectionTitle}>Phone Verification for OTP Payments</h3>
+
+          {profile?.phoneVerified && !isChangingPhone ? (
+            <div style={styles.verifiedRow}>
+              <span style={styles.verifiedBadge}>✓ Verified: {profile.phone}</span>
+              <button
+                type="button"
+                onClick={() => setIsChangingPhone(true)}
+                style={styles.changeNumberButton}
+              >
+                Change Number
+              </button>
+            </div>
+          ) : (
+            <>
+              <p style={styles.phonePanelText}>
+                {profile?.phoneVerified
+                  ? 'Enter a new number below to replace your verified phone.'
+                  : 'Add your phone number and verify it to receive OTP for suspicious or large payments.'}
+              </p>
+
+              <div style={styles.phoneRow}>
+                <input
+                  type="tel"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  placeholder="Enter 10-digit phone number"
+                  style={styles.phoneInput}
+                />
+                <button
+                  type="button"
+                  onClick={sendPhoneOtp}
+                  disabled={actionLoading.send}
+                  style={styles.sendOtpButton}
+                >
+                  {actionLoading.send ? 'Sending...' : 'Send OTP'}
+                </button>
+              </div>
+
+              <div style={styles.phoneRow}>
+                <input
+                  type="text"
+                  value={otpInput}
+                  onChange={(e) => setOtpInput(e.target.value)}
+                  placeholder="Enter 6-digit OTP"
+                  maxLength={6}
+                  style={styles.phoneInput}
+                />
+                <button
+                  type="button"
+                  onClick={verifyPhoneOtp}
+                  disabled={actionLoading.verify}
+                  style={styles.verifyOtpButton}
+                >
+                  {actionLoading.verify ? 'Verifying...' : 'Verify OTP'}
+                </button>
+              </div>
+
+              {profile?.phoneVerified && isChangingPhone && (
+                <button
+                  type="button"
+                  onClick={() => { setIsChangingPhone(false); setFeedback({ type: '', text: '' }); }}
+                  style={styles.cancelChangeButton}
+                >
+                  Cancel
+                </button>
+              )}
+            </>
+          )}
+
+          {feedback.text && (
+            <div style={feedback.type === 'error' ? styles.errorBox : styles.successBox}>
+              {feedback.text}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -195,7 +224,7 @@ export default function Profile() {
 }
 
 const styles = {
-  container: { maxWidth: '500px', margin: '0 auto', padding: '20px' },
+  container: { maxWidth: '720px', margin: '0 auto', padding: '20px' },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -216,29 +245,45 @@ const styles = {
   },
   profileCard: {
     background: '#fff',
-    padding: '32px',
+    padding: '28px',
     borderRadius: '12px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
     textAlign: 'center',
   },
   avatar: {
-    width: '80px',
-    height: '80px',
+    width: '72px',
+    height: '72px',
     borderRadius: '50%',
     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     color: '#fff',
-    fontSize: '32px',
+    fontSize: '28px',
     fontWeight: 'bold',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    margin: '0 auto 24px',
+    margin: '0 auto 20px',
   },
-  info: { textAlign: 'left' },
-  infoRow: {
+  infoGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
+    gap: '24px',
+    textAlign: 'left',
     marginBottom: '20px',
-    paddingBottom: '16px',
-    borderBottom: '1px solid #eee',
+  },
+  infoSection: {},
+  sectionTitle: {
+    margin: '0 0 12px',
+    fontSize: '14px',
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  infoRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    gap: '10px',
+    padding: '8px 0',
+    borderBottom: '1px solid #f0f0f0',
   },
   label: {
     fontSize: '12px',
@@ -246,30 +291,19 @@ const styles = {
     color: '#999',
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
+    flexShrink: 0,
   },
   value: {
-    fontSize: '16px',
+    fontSize: '14px',
     fontWeight: '600',
     color: '#1a1a2e',
-    marginTop: '8px',
+    textAlign: 'right',
+    wordBreak: 'break-word',
   },
   balanceValue: {
-    fontSize: '20px',
+    fontSize: '16px',
     fontWeight: '700',
     color: '#667eea',
-    marginTop: '8px',
-  },
-  verifiedValue: {
-    fontSize: '16px',
-    fontWeight: '700',
-    color: '#0b8457',
-    marginTop: '8px',
-  },
-  unverifiedValue: {
-    fontSize: '16px',
-    fontWeight: '700',
-    color: '#dc2626',
-    marginTop: '8px',
   },
   alertBox: {
     background: '#fff4e5',
@@ -280,23 +314,53 @@ const styles = {
     color: '#5d4037',
     fontWeight: '600',
   },
-  phonePanel: {
-    background: '#fff',
-    borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    padding: '18px',
-    marginBottom: '18px',
-  },
-  phonePanelTitle: {
-    margin: '0 0 8px',
-    color: '#1a1a2e',
-    fontSize: '18px',
+  phoneSection: {
+    textAlign: 'left',
+    borderTop: '1px solid #f0f0f0',
+    paddingTop: '18px',
   },
   phonePanelText: {
     margin: '0 0 12px',
     color: '#4b5563',
     fontSize: '13px',
     lineHeight: 1.5,
+  },
+  verifiedRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    flexWrap: 'wrap',
+  },
+  verifiedBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    background: 'rgba(22, 163, 74, 0.12)',
+    color: '#14532d',
+    borderRadius: '999px',
+    padding: '6px 14px',
+    fontSize: '13px',
+    fontWeight: '700',
+  },
+  changeNumberButton: {
+    border: '1px solid #d1d5db',
+    borderRadius: '8px',
+    padding: '6px 12px',
+    background: '#fff',
+    color: '#374151',
+    fontWeight: '600',
+    fontSize: '12px',
+    cursor: 'pointer',
+  },
+  cancelChangeButton: {
+    border: 'none',
+    borderRadius: '8px',
+    padding: '8px 12px',
+    background: '#f0f0f0',
+    color: '#374151',
+    fontWeight: '600',
+    fontSize: '12px',
+    cursor: 'pointer',
+    marginTop: '2px',
   },
   phoneRow: {
     display: 'flex',
